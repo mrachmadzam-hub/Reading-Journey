@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zamo's Reading Journal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #000000;
+            --accent: #3B82F6;
+            --bg: #F8FAFC;
+            --panel: rgba(255, 255, 255, 0.8);
+            --text-main: #1E293B;
+            --text-muted: #64748B;
+            --border: rgba(0, 0, 0, 0.05);
+        }
+
+        .dark {
+            --primary: #FFFFFF;
+            --bg: #0F172A;
+            --panel: rgba(30, 41, 59, 0.7);
+            --text-main: #F1F5F9;
+            --text-muted: #94A3B8;
+            --border: rgba(255, 255, 255, 0.1);
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: var(--bg);
+            color: var(--text-main);
+            transition: background-color 0.4s ease, color 0.4s ease;
+            overflow-x: hidden;
+        }
+
+        .bento-grid {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            gap: 1.5rem;
+        }
+
+        .glass-panel {
+            background: var(--panel);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            border-radius: 32px;
+            transition: all 0.4s cubic-bezier(0.19, 1, 0.22, 1);
+        }
+
+        .glass-panel:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.05);
+        }
+
+        .book-card.active {
+            border: 2px solid var(--accent);
+            box-shadow: 0 0 30px rgba(var(--accent-rgb), 0.1);
+        }
+
+        /* THEMES */
+        .theme-1 { --accent: #3B82F6; --accent-rgb: 59, 130, 246; }
+        .theme-2 { --accent: #EF4444; --accent-rgb: 239, 68, 68; }
+        .theme-3 { --accent: #F59E0B; --accent-rgb: 245, 158, 11; }
+        
+        .bg-accent { background-color: var(--accent); }
+        .text-accent { color: var(--accent); }
+        .border-accent { border-color: var(--accent); }
+
+        .dark-mode-toggle {
+            cursor: pointer;
+            width: 48px;
+            height: 24px;
+            background: #CBD5E1;
+            border-radius: 50px;
+            position: relative;
+            transition: 0.3s;
+        }
+        .dark .dark-mode-toggle { background: var(--accent); }
+        .dark-mode-toggle::before {
+            content: '';
+            position: absolute;
+            width: 18px;
+            height: 18px;
+            background: white;
+            border-radius: 50%;
+            top: 3px;
+            left: 3px;
+            transition: 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+        .dark .dark-mode-toggle::before { left: 27px; }
+
+        .progress-ring {
+            transition: stroke-dashoffset 0.8s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade { animation: fadeIn 0.4s ease-out forwards; }
+
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 10px; }
+        .dark ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); }
+        
+        .delete-btn {
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+        .item-row:hover .delete-btn {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body class="theme-1 p-4 md:p-10">
+
+    <div id="app" class="max-w-[1500px] mx-auto">
+        <!-- HEADER -->
+        <header class="flex flex-col lg:flex-row justify-between items-start lg:items-end mb-12 gap-8">
+            <div class="space-y-2">
+                <div class="flex items-center gap-6 mb-4">
+                    <span class="w-12 h-1.5 bg-accent rounded-full"></span>
+                    <div class="flex items-center gap-3">
+                        <span class="text-[10px] font-bold opacity-40 uppercase tracking-widest">Light</span>
+                        <div class="dark-mode-toggle" onclick="toggleDarkMode()"></div>
+                        <span class="text-[10px] font-bold opacity-40 uppercase tracking-widest">Dark</span>
+                    </div>
+                </div>
+                <h1 class="text-5xl font-extrabold tracking-tighter">Zamo's Reading Journal</h1>
+            </div>
+            
+            <div class="glass-panel p-6 flex items-center gap-8 min-w-[320px]">
+                <div class="text-right">
+                    <p id="quote-text" class="text-sm font-bold italic leading-tight">"Leadership is communication."</p>
+                    <p id="quote-author" class="text-[9px] font-black opacity-30 mt-1 uppercase tracking-widest">— James Humes</p>
+                </div>
+                <div class="w-12 h-12 rounded-2xl bg-accent flex items-center justify-center text-white shrink-0 shadow-lg">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332-4.5 1.253" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </div>
+            </div>
+        </header>
+
+        <div class="bento-grid">
+            <div class="col-span-12 lg:col-span-8 space-y-6">
+                <!-- BOOKS CONTAINER -->
+                <div id="books-container" class="grid grid-cols-1 md:grid-cols-3 gap-6"></div>
+
+                <!-- MAIN CONTROLLER -->
+                <div class="glass-panel p-10 relative overflow-hidden">
+                    <div class="flex flex-col xl:flex-row gap-12">
+                        <!-- Radial Progress -->
+                        <div class="relative w-56 h-56 shrink-0 mx-auto xl:mx-0">
+                            <svg class="w-full h-full transform -rotate-90">
+                                <circle cx="112" cy="112" r="100" stroke="currentColor" stroke-opacity="0.05" stroke-width="12" fill="transparent" />
+                                <circle id="radial-progress" cx="112" cy="112" r="100" stroke="var(--accent)" stroke-width="12" fill="transparent" 
+                                    stroke-dasharray="628" stroke-dashoffset="628" stroke-linecap="round" class="progress-ring" />
+                            </svg>
+                            <div class="absolute inset-0 flex flex-col items-center justify-center">
+                                <span id="radial-percent" class="text-5xl font-black tracking-tighter">0%</span>
+                                <span class="text-[9px] font-bold opacity-30 uppercase tracking-[0.2em] mt-1">Current Book</span>
+                            </div>
+                        </div>
+
+                        <!-- Inputs & Focus Timer -->
+                        <div class="flex-grow space-y-10">
+                            <div class="flex flex-wrap items-end gap-10">
+                                <div>
+                                    <label class="text-[10px] font-black uppercase opacity-30 mb-4 block tracking-widest">Update Pages</label>
+                                    <div class="flex items-center gap-4">
+                                        <input type="number" id="page-input" onfocus="if(this.value=='0')this.value=''" onblur="if(this.value=='')this.value='0'" class="bg-transparent text-6xl font-black focus:outline-none w-32 border-b-4 border-accent" value="0">
+                                        <span class="text-sm font-bold opacity-30 italic">pgs</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="bg-slate-500/5 rounded-3xl p-6 flex items-center gap-6 min-w-[240px] border border-black/5 dark:border-white/5">
+                                    <div class="text-center">
+                                        <p id="timer-display" class="text-2xl font-black">25:00</p>
+                                        <p class="text-[8px] font-bold opacity-40 uppercase">Deep Work Timer</p>
+                                    </div>
+                                    <button id="timer-btn" onclick="toggleTimer()" class="w-12 h-12 bg-accent text-white rounded-2xl flex items-center justify-center hover:scale-105 transition-transform shadow-lg">
+                                        <svg id="timer-icon" class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M4.5 3a.5.5 0 00-.5.5v13a.5.5 0 00.81.39l8.89-6.5a.5.5 0 000-.78l-8.89-6.5A.5.5 0 004.5 3z"/></svg>
+                                    </button>
+                                    <button onclick="resetTimer()" class="text-[10px] font-bold opacity-30 hover:opacity-100 uppercase tracking-widest">Reset</button>
+                                </div>
+                            </div>
+
+                            <div class="space-y-4">
+                                <label class="text-[10px] font-black uppercase opacity-30 block tracking-widest">Key Insights</label>
+                                <div class="flex flex-col sm:flex-row gap-4">
+                                    <input type="text" id="insight-input" class="flex-grow bg-slate-500/5 px-8 py-5 rounded-2xl focus:ring-2 focus:ring-accent outline-none text-sm font-medium border border-black/5 dark:border-white/5" placeholder="Any valuable lessons today?">
+                                    <button onclick="handleSave()" class="bg-accent text-white px-12 py-5 rounded-2xl font-black hover:scale-105 active:scale-95 transition-all shadow-xl uppercase">Save Progress</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- VELOCITY DASHBOARD -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="glass-panel p-8">
+                        <h3 class="text-[10px] font-black uppercase opacity-40 tracking-widest mb-6">Actual Velocity (7D)</h3>
+                        <div class="flex items-end gap-3">
+                            <span id="avg-pages" class="text-5xl font-black tracking-tighter">0.0</span>
+                            <span class="text-sm font-bold opacity-30 mb-2 uppercase tracking-widest">pgs / day</span>
+                        </div>
+                        <p id="velocity-status" class="text-[10px] font-bold opacity-30 mt-4 uppercase tracking-widest">Awaiting data...</p>
+                    </div>
+                    <div class="glass-panel p-8">
+                        <h3 class="text-[10px] font-black uppercase opacity-40 tracking-widest mb-6">Required Velocity (Target July 2026)</h3>
+                        <div class="flex items-end gap-3">
+                            <span id="req-velocity" class="text-5xl font-black tracking-tighter">--</span>
+                            <span class="text-sm font-bold opacity-30 mb-2 uppercase tracking-widest">pgs / day</span>
+                        </div>
+                        <p id="etc-status" class="text-[10px] font-bold opacity-30 mt-4 uppercase tracking-widest">Based on remaining pages & time</p>
+                    </div>
+                </div>
+
+                <!-- INSIGHTS & HISTORY LOGS -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- INSIGHTS GRID -->
+                    <div class="space-y-4">
+                        <h3 class="text-[10px] font-black uppercase opacity-40 tracking-widest ml-4">Daily Insights</h3>
+                        <div id="insights-grid" class="space-y-4"></div>
+                    </div>
+                    
+                    <!-- RECENT LOGS -->
+                    <div class="glass-panel p-8">
+                        <h3 class="text-[10px] font-black uppercase opacity-40 tracking-widest mb-6">Activity Logs</h3>
+                        <div id="logs-container" class="space-y-4 max-h-[500px] overflow-y-auto pr-2"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-span-12 lg:col-span-4 space-y-6">
+                <!-- STREAK & LEVEL -->
+                <div class="glass-panel p-8 bg-slate-900 text-white border-none shadow-2xl relative overflow-hidden">
+                    <div class="relative z-10 space-y-8">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p id="level-tag" class="text-[10px] bg-accent px-3 py-1.5 rounded-full font-black tracking-tighter inline-block uppercase">LVL 1 NOVICE</p>
+                                <h3 id="streak-count" class="text-3xl font-black mt-3 uppercase tracking-tighter">0 DAYS</h3>
+                                <p class="text-[10px] font-bold opacity-40 uppercase">Reading Streak</p>
+                            </div>
+                            <div class="w-16 h-16 rounded-3xl bg-white/10 flex items-center justify-center backdrop-blur-md">
+                                <span class="text-3xl">🔥</span>
+                            </div>
+                        </div>
+                        <div id="gamify-msg" class="text-lg font-bold leading-snug opacity-90">"Consistency is the bridge between goals and accomplishment."</div>
+                        <div class="grid grid-cols-6 gap-2" id="week-dots"></div>
+                    </div>
+                    <div class="absolute top-0 right-0 w-32 h-32 bg-accent/20 rounded-full blur-[60px]"></div>
+                </div>
+
+                <!-- ROADMAP -->
+                <div class="glass-panel p-8">
+                    <div class="flex justify-between items-center mb-10">
+                        <h3 class="text-[10px] font-black uppercase opacity-40 tracking-widest">Roadmap July 2026</h3>
+                        <span class="text-[9px] font-black bg-black/5 dark:bg-white/5 px-2 py-1 rounded">ULTIMATE GOAL</span>
+                    </div>
+                    <div id="milestones-list" class="space-y-10"></div>
+                </div>
+
+                <!-- SUMMARY STATS -->
+                <div class="glass-panel p-8 flex justify-between items-center">
+                    <div>
+                        <p id="total-pages-read" class="text-3xl font-black tracking-tighter">0</p>
+                        <p class="text-[9px] font-bold opacity-30 uppercase">Total Pages</p>
+                    </div>
+                    <div class="text-right">
+                        <p id="books-completed" class="text-3xl font-black tracking-tighter">0</p>
+                        <p class="text-[9px] font-bold opacity-30 uppercase">Books Finished</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- AUDIO -->
+    <audio id="sound-pop" src="https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3"></audio>
+    <audio id="sound-win" src="https://assets.mixkit.co/active_storage/sfx/1435/1435-preview.mp3"></audio>
+
+    <script>
+        const books = [
+            { id: 0, title: "Ilmu Komunikasi: Suatu Pengantar", author: "Deddy Mulyana", pages: 584, color: "#3B82F6", deadline: "2026-07-01" },
+            { id: 1, title: "Talk Like TED", author: "Carmine Gallo", pages: 326, color: "#EF4444", deadline: "2026-07-01" },
+            { id: 2, title: "Bicara Itu Ada Seninya", author: "Oh Su Hyang", pages: 256, color: "#F59E0B", deadline: "2026-07-01" }
+        ];
+
+        let state = JSON.parse(localStorage.getItem('zamo_journal_v7')) || {
+            activeBookIdx: 0,
+            progress: [0, 0, 0],
+            insights: [],
+            streak: 0,
+            lastLogged: null,
+            weekProgress: [false, false, false, false, false, false],
+            logs: [],
+            darkMode: false
+        };
+
+        let timerSeconds = 25 * 60;
+        let timerInterval = null;
+        let isTimerRunning = false;
+
+        function init() {
+            if (state.darkMode) document.documentElement.classList.add('dark');
+            refreshUI();
+            switchBook(state.activeBookIdx, false);
+        }
+
+        function toggleDarkMode() {
+            state.darkMode = !state.darkMode;
+            document.documentElement.classList.toggle('dark');
+            save();
+        }
+
+        function renderBooks() {
+            const container = document.getElementById('books-container');
+            container.innerHTML = books.map((b, i) => {
+                const perc = Math.round((state.progress[i] / b.pages) * 100);
+                const isActive = i === state.activeBookIdx;
+                return `
+                <div onclick="switchBook(${i})" class="book-card glass-panel p-8 cursor-pointer group ${isActive ? 'active' : ''}">
+                    <div class="flex justify-between items-start mb-10">
+                        <div class="px-3 py-1 rounded-lg text-[10px] font-black" style="background: ${b.color}15; color: ${b.color}">BOOK 0${i+1}</div>
+                        ${perc >= 100 ? '<span class="text-xl">🏆</span>' : ''}
+                    </div>
+                    <h4 class="font-extrabold text-base mb-2 leading-tight">${b.title}</h4>
+                    <p class="text-[10px] font-bold opacity-30 uppercase tracking-widest mb-8">${b.author}</p>
+                    <div class="flex justify-between items-end">
+                        <span class="text-4xl font-black tracking-tighter">${perc}%</span>
+                        <div class="text-right">
+                            <p class="text-[9px] font-bold opacity-20 uppercase">Rem.</p>
+                            <p class="text-xs font-bold">${b.pages - state.progress[i]} pgs</p>
+                        </div>
+                    </div>
+                </div>
+                `;
+            }).join('');
+        }
+
+        function renderLogs() {
+            const container = document.getElementById('logs-container');
+            if (state.logs.length === 0) {
+                container.innerHTML = `<p class="text-[10px] font-bold opacity-30 uppercase text-center mt-10">No activity yet</p>`;
+                return;
+            }
+            const sortedLogs = [...state.logs].reverse();
+            container.innerHTML = sortedLogs.map(log => {
+                const date = new Date(log.date);
+                const timeStr = date.toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit'});
+                const dateStr = date.toLocaleDateString('en-US', {day:'2-digit', month:'short'});
+                const book = books[log.bookId] || { title: "Unknown Book", color: "#64748B" };
+
+                return `
+                <div class="item-row group flex items-center justify-between p-4 bg-black/5 dark:bg-white/5 rounded-2xl animate-fade relative">
+                    <div class="flex items-center gap-4">
+                        <div class="w-1.5 h-10 rounded-full" style="background: ${book.color}"></div>
+                        <div>
+                            <p class="text-[9px] font-bold opacity-40 uppercase tracking-widest">${dateStr} • ${timeStr}</p>
+                            <p class="text-sm font-bold">Read <span class="text-accent">${log.pages} Pages</span></p>
+                            <p class="text-[10px] font-medium opacity-60 italic truncate max-w-[180px]">${book.title}</p>
+                        </div>
+                    </div>
+                    <button onclick="deleteLog('${log.id}')" class="delete-btn p-2 hover:bg-red-500/10 text-red-500 rounded-lg">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </button>
+                </div>
+                `;
+            }).join('');
+        }
+
+        function switchBook(idx, playSfx = true) {
+            state.activeBookIdx = idx;
+            document.body.className = `theme-${idx + 1} p-4 md:p-10`;
+            refreshUI();
+            if(playSfx) playSound('pop');
+            save();
+        }
+
+        function handleSave() {
+            const pageIn = document.getElementById('page-input');
+            const insightIn = document.getElementById('insight-input');
+            const added = parseInt(pageIn.value) || 0;
+            const insight = insightIn.value.trim();
+
+            if (added <= 0 && !insight) return;
+
+            const cur = state.progress[state.activeBookIdx];
+            const max = books[state.activeBookIdx].pages;
+            
+            if (added > 0) {
+                state.progress[state.activeBookIdx] = Math.min(cur + added, max);
+                state.logs.push({ 
+                    id: 'log-' + Date.now() + Math.random().toString(36).substr(2, 5),
+                    date: new Date().toISOString(), 
+                    pages: added,
+                    bookId: state.activeBookIdx 
+                });
+            }
+
+            if (insight) {
+                state.insights.unshift({
+                    id: 'ins-' + Date.now() + Math.random().toString(36).substr(2, 5),
+                    text: insight,
+                    book: books[state.activeBookIdx].title,
+                    color: books[state.activeBookIdx].color,
+                    date: new Date().toLocaleDateString('en-US', {day:'2-digit', month:'short'})
+                });
+            }
+
+            updateStreakLogic();
+            triggerFeedback(state.progress[state.activeBookIdx], max);
+            pageIn.value = 0;
+            insightIn.value = '';
+            refreshUI();
+            save();
+        }
+
+        function deleteLog(logId) {
+            const logIdx = state.logs.findIndex(l => l.id === logId);
+            if (logIdx === -1) return;
+
+            const log = state.logs[logIdx];
+            // Revert progress
+            state.progress[log.bookId] = Math.max(0, state.progress[log.bookId] - log.pages);
+            // Remove log
+            state.logs.splice(logIdx, 1);
+            
+            refreshUI();
+            save();
+        }
+
+        function deleteInsight(insId) {
+            state.insights = state.insights.filter(i => i.id !== insId);
+            refreshUI();
+            save();
+        }
+
+        function updateLevel() {
+            const total = state.progress.reduce((a, b) => a + b, 0);
+            const levelTag = document.getElementById('level-tag');
+            const msg = document.getElementById('gamify-msg');
+            
+            let level = "LVL 1 NOVICE";
+            let quote = "Consistency is the bridge between goals and accomplishment.";
+
+            if (total >= 100 && total < 300) {
+                level = "LVL 2 READER";
+                quote = "Great job! The first 100 pages are the hardest. You're past it.";
+            } else if (total >= 300 && total < 600) {
+                level = "LVL 3 SCHOLAR";
+                quote = "Your knowledge is expanding. Keep pushing, Zamo!";
+            } else if (total >= 600) {
+                level = "LVL 4 MASTER";
+                quote = "Legendary! Your communication skills must be elite by now.";
+            }
+
+            levelTag.innerText = level;
+            msg.innerText = `"${quote}"`;
+        }
+
+        function updateVelocity() {
+            const now = new Date();
+            const b = books[state.activeBookIdx];
+            const deadline = new Date(b.deadline);
+            
+            const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+            const recentLogs = state.logs.filter(log => new Date(log.date) > sevenDaysAgo);
+            const totalRecent = recentLogs.reduce((acc, log) => acc + log.pages, 0);
+            const actualAvg = totalRecent / 7;
+            document.getElementById('avg-pages').innerText = actualAvg.toFixed(1);
+
+            const remainingPages = b.pages - state.progress[state.activeBookIdx];
+            const remainingTime = deadline - now;
+            const remainingDays = Math.max(1, Math.ceil(remainingTime / (1000 * 60 * 60 * 24)));
+            
+            const reqAvg = remainingPages / remainingDays;
+            document.getElementById('req-velocity').innerText = isNaN(reqAvg) ? "--" : reqAvg.toFixed(1);
+
+            const statusEl = document.getElementById('velocity-status');
+            const etcEl = document.getElementById('etc-status');
+            
+            statusEl.classList.remove('text-red-500', 'text-green-500');
+
+            if (actualAvg === 0) {
+                statusEl.innerText = "No progress this week";
+                statusEl.classList.add('opacity-30');
+            } else if (actualAvg < reqAvg) {
+                statusEl.innerText = "⚠️ Falling behind July target!";
+                statusEl.classList.add('text-red-500');
+                statusEl.classList.remove('opacity-30');
+            } else {
+                statusEl.innerText = "✅ On track for July 2026!";
+                statusEl.classList.add('text-green-500');
+                statusEl.classList.remove('opacity-30');
+            }
+
+            etcEl.innerText = `${remainingDays} days left until July 2026 deadline`;
+        }
+
+        function updateStreakLogic() {
+            const today = new Date();
+            const todayStr = today.toDateString();
+            if (state.lastLogged !== todayStr) {
+                const yesterday = new Date();
+                yesterday.setDate(yesterday.getDate() - 1);
+                state.streak = (state.lastLogged === yesterday.toDateString()) ? state.streak + 1 : 1;
+                state.lastLogged = todayStr;
+            }
+            const d = today.getDay();
+            const map = {1:0, 2:1, 3:2, 4:3, 5:4, 6:5}; 
+            if (d in map) state.weekProgress[map[d]] = true;
+        }
+
+        function triggerFeedback(val, max) {
+            if (val >= max) {
+                confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
+                playSound('win');
+            } else playSound('pop');
+        }
+
+        function refreshUI() {
+            renderBooks(); renderMilestones(); renderInsights(); 
+            renderWeekDots(); renderLogs(); updateProgressVisuals(); 
+            updateGlobalStats(); updateVelocity(); updateLevel();
+        }
+
+        function updateProgressVisuals() {
+            const b = books[state.activeBookIdx];
+            const perc = Math.round((state.progress[state.activeBookIdx] / b.pages) * 100);
+            const circle = document.getElementById('radial-progress');
+            circle.style.strokeDashoffset = 628 - (perc / 100 * 628);
+            document.getElementById('radial-percent').innerText = perc + '%';
+        }
+
+        function renderMilestones() {
+            const container = document.getElementById('milestones-list');
+            container.innerHTML = books.map((b, i) => {
+                const perc = Math.round((state.progress[i] / b.pages) * 100);
+                const isActive = i === state.activeBookIdx;
+                const d = new Date(b.deadline);
+                const dStr = d.toLocaleDateString('en-US', {month:'short', year:'2-digit'});
+                return `
+                <div class="relative pl-8 border-l-2 ${isActive ? 'border-accent' : 'border-black/10 dark:border-white/10'}">
+                    <div class="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-white dark:bg-slate-900 border-4 ${isActive ? 'border-accent' : 'border-black/20 dark:border-white/20'}"></div>
+                    <div class="flex justify-between items-start mb-2">
+                        <h5 class="text-sm font-black ${isActive ? 'opacity-100' : 'opacity-30'}">${b.title.split(':')[0]}</h5>
+                        <span class="text-[10px] font-bold opacity-40 uppercase">${dStr}</span>
+                    </div>
+                    <div class="w-full h-1.5 bg-slate-500/5 rounded-full overflow-hidden border border-black/5 dark:border-white/5">
+                        <div class="h-full transition-all duration-1000" style="width: ${perc}%; background: ${isActive ? 'var(--accent)' : '#94a3b8'}"></div>
+                    </div>
+                </div>
+                `;
+            }).join('');
+        }
+
+        function renderInsights() {
+            const grid = document.getElementById('insights-grid');
+            if (state.insights.length === 0) {
+                grid.innerHTML = `
+                <div class="glass-panel p-8 opacity-40 border-dashed border-2 flex items-center justify-center">
+                    <p class="text-[10px] font-black uppercase tracking-widest">No insights yet</p>
+                </div>`;
+                return;
+            }
+            grid.innerHTML = state.insights.slice(0, 5).map(item => `
+                <div class="item-row glass-panel p-6 animate-fade relative group">
+                    <div class="flex justify-between items-center mb-4">
+                         <span class="text-[9px] font-black uppercase tracking-[0.2em]" style="color: ${item.color}">${item.book.split(':')[0]}</span>
+                         <div class="flex items-center gap-3">
+                            <span class="text-[9px] font-bold opacity-20 uppercase tracking-widest">${item.date}</span>
+                            <button onclick="deleteInsight('${item.id}')" class="delete-btn p-1.5 hover:bg-red-500/10 text-red-500 rounded-lg">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                            </button>
+                         </div>
+                    </div>
+                    <p class="text-sm font-bold leading-relaxed">"${item.text}"</p>
+                </div>
+            `).join('');
+        }
+
+        function renderWeekDots() {
+            const container = document.getElementById('week-dots');
+            const days = ['M', 'T', 'W', 'T', 'F', 'S'];
+            container.innerHTML = days.map((d, i) => `
+                <div class="h-12 flex flex-col items-center justify-center rounded-xl transition-all ${state.weekProgress[i] ? 'bg-accent text-white font-bold' : 'bg-white/10 text-white/30'}">
+                    <span class="text-[9px]">${d}</span>
+                </div>
+            `).join('');
+        }
+
+        function updateGlobalStats() {
+            document.getElementById('total-pages-read').innerText = state.progress.reduce((a, b) => a + b, 0);
+            document.getElementById('books-completed').innerText = state.progress.filter((p, i) => p >= books[i].pages).length;
+            document.getElementById('streak-count').innerText = `${state.streak} ${state.streak === 1 ? 'DAY' : 'DAYS'}`;
+        }
+
+        function toggleTimer() {
+            if (isTimerRunning) {
+                clearInterval(timerInterval);
+                document.getElementById('timer-icon').innerHTML = '<path d="M4.5 3a.5.5 0 00-.5.5v13a.5.5 0 00.81.39l8.89-6.5a.5.5 0 000-.78l-8.89-6.5A.5.5 0 004.5 3z"/>';
+            } else {
+                timerInterval = setInterval(() => {
+                    timerSeconds--; updateTimerDisplay();
+                    if (timerSeconds <= 0) { clearInterval(timerInterval); triggerFeedback(1, 1); resetTimer(); }
+                }, 1000);
+                document.getElementById('timer-icon').innerHTML = '<path d="M5 4h3v12H5V4zm7 0h3v12h-3V4z"/>';
+            }
+            isTimerRunning = !isTimerRunning;
+        }
+
+        function resetTimer() {
+            clearInterval(timerInterval); isTimerRunning = false; timerSeconds = 25 * 60;
+            updateTimerDisplay();
+            document.getElementById('timer-icon').innerHTML = '<path d="M4.5 3a.5.5 0 00-.5.5v13a.5.5 0 00.81.39l8.89-6.5a.5.5 0 000-.78l-8.89-6.5A.5.5 0 004.5 3z"/>';
+        }
+
+        function updateTimerDisplay() {
+            const m = Math.floor(timerSeconds / 60); const s = timerSeconds % 60;
+            document.getElementById('timer-display').innerText = `${m}:${s < 10 ? '0'+s : s}`;
+        }
+
+        function playSound(id) {
+            const s = document.getElementById('sound-' + id);
+            if (s) { s.currentTime = 0; s.volume = 0.15; s.play().catch(()=>{}); }
+        }
+
+        function save() { localStorage.setItem('zamo_journal_v7', JSON.stringify(state)); }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
