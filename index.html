@@ -95,7 +95,6 @@
             transition: stroke-dashoffset 0.8s ease-in-out;
         }
 
-        /* SEAMLESS QUOTE ANIMATION */
         .quote-fade {
             animation: seamlessFade 1.2s ease-in-out forwards;
         }
@@ -111,7 +110,6 @@
             margin-top: 1rem;
         }
 
-        /* REMOVE ARROWS FROM NUMBER INPUT */
         input::-webkit-outer-spin-button,
         input::-webkit-inner-spin-button {
             -webkit-appearance: none;
@@ -131,6 +129,21 @@
         
         .insight-card {
             position: relative;
+        }
+
+        /* CUSTOM SCROLLBAR FOR INSIGHTS */
+        .custom-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: rgba(0,0,0,0.1);
+            border-radius: 10px;
+        }
+        .dark .custom-scroll::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.1);
         }
     </style>
 </head>
@@ -212,8 +225,8 @@
 
                             <div class="space-y-4">
                                 <label class="text-[10px] font-black uppercase opacity-30 block tracking-widest">Daily Breakthrough</label>
-                                <div class="flex flex-col sm:flex-row gap-4">
-                                    <input type="text" id="insight-input" class="flex-grow bg-slate-500/5 px-8 py-5 rounded-2xl focus:ring-2 focus:ring-accent outline-none text-sm font-medium border border-black/5 dark:border-white/5" placeholder="Capture your key takeaways...">
+                                <div class="flex flex-col gap-4">
+                                    <textarea id="insight-input" rows="3" class="w-full bg-slate-500/5 px-8 py-5 rounded-2xl focus:ring-2 focus:ring-accent outline-none text-sm font-medium border border-black/5 dark:border-white/5 resize-none" placeholder="Capture your key takeaways..."></textarea>
                                     <button onclick="handleSave()" class="bg-accent text-white px-12 py-5 rounded-2xl font-black hover:scale-105 transition-all uppercase shadow-xl">Update Progress</button>
                                 </div>
                             </div>
@@ -242,12 +255,12 @@
                 <!-- LISTS -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div class="space-y-4">
-                        <h3 class="text-[10px] font-black uppercase opacity-40 tracking-widest ml-4">Latest Insights</h3>
-                        <div id="insights-grid" class="space-y-4"></div>
+                        <h3 class="text-[10px] font-black uppercase opacity-40 tracking-widest ml-4">Full Insight History</h3>
+                        <div id="insights-grid" class="space-y-4 max-h-[500px] overflow-y-auto pr-2 custom-scroll"></div>
                     </div>
                     <div class="glass-panel p-8">
                         <h3 class="text-[10px] font-black uppercase opacity-40 tracking-widest mb-6">Reading History</h3>
-                        <div id="logs-container" class="space-y-4 max-h-[400px] overflow-y-auto pr-2"></div>
+                        <div id="logs-container" class="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scroll"></div>
                     </div>
                 </div>
             </div>
@@ -301,7 +314,7 @@
             { text: "Either write something worth reading or do something worth writing.", author: "Benjamin Franklin" }
         ];
 
-        let state = JSON.parse(localStorage.getItem('zamo_journal_v8')) || {
+        let state = JSON.parse(localStorage.getItem('zamo_journal_v9')) || {
             activeIdx: 0,
             progress: [0, 0, 0],
             insights: [],
@@ -319,8 +332,6 @@
             if (state.darkMode) document.documentElement.classList.add('dark');
             refreshUI();
             switchBook(state.activeIdx);
-            
-            // QUOTE ROTATION
             rotateQuote();
             setInterval(rotateQuote, 15000); 
         }
@@ -509,7 +520,7 @@
 
         function renderInsights() {
             const grid = document.getElementById('insights-grid');
-            grid.innerHTML = state.insights.slice(0, 3).map(ins => `
+            grid.innerHTML = state.insights.map(ins => `
                 <div class="insight-card glass-panel p-6 animate-fade group">
                     <div class="flex justify-between items-start">
                         <div class="flex items-center gap-2">
@@ -520,7 +531,7 @@
                              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                         </button>
                     </div>
-                    <p class="text-sm font-bold mt-3 leading-relaxed">"${ins.text}"</p>
+                    <p class="text-sm font-bold mt-3 leading-relaxed" style="white-space: pre-wrap;">"${ins.text}"</p>
                 </div>
             `).join('') || `<div class="p-10 text-center opacity-20 font-bold uppercase text-[10px]">No entries found</div>`;
         }
@@ -581,10 +592,9 @@
             }
         }
 
-        function save() { localStorage.setItem('zamos_journal_v8', JSON.stringify(state)); }
+        function save() { localStorage.setItem('zamo_journal_v9', JSON.stringify(state)); }
 
         window.onload = init;
     </script>
 </body>
 </html>
-
